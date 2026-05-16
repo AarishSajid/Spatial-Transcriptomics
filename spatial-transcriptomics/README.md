@@ -2,12 +2,15 @@
 
 # Spatial Transcriptomics Analysis
 
-**Four end-to-end workflows linking gene expression to tissue architecture**
+**Five end-to-end workflows linking gene expression to tissue architecture**
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Scanpy](https://img.shields.io/badge/Scanpy-1.9%2B-FF6B35?style=flat-square)](https://scanpy.readthedocs.io)
 [![Squidpy](https://img.shields.io/badge/Squidpy-1.2%2B-7C3AED?style=flat-square)](https://squidpy.readthedocs.io)
 [![SpatialData](https://img.shields.io/badge/SpatialData-0.1%2B-0EA5E9?style=flat-square)](https://spatialdata.scverse.org)
+[![Notebook](https://img.shields.io/badge/Jupyter-Notebook-F37626?style=flat-square&logo=jupyter&logoColor=white)](https://colab.research.google.com/drive/1v6DlDyF9vhYkcVDoOylz1xoTYGOcn35q?usp=sharing)
+
+**Aarish Sajid · Reg. No. 454318**
 
 </div>
 
@@ -15,7 +18,9 @@
 
 ## Overview
 
-Spatial transcriptomics answers a question that bulk and single-cell RNA-seq cannot: **where** in a tissue are genes expressed? This repository covers four major spatial platforms — from 55 µm Visium spots to subcellular Xenium in-situ sequencing — with fully annotated pipelines and publication-quality outputs.
+Spatial transcriptomics answers a question that bulk and single-cell RNA-seq cannot: **where** in a tissue are genes expressed? This repository implements five major spatial workflows — spanning 55 µm Visium spots, subcellular MERFISH molecules, and single-cell Xenium sequencing — with fully annotated pipelines and publication-quality figures, all consolidated in a single Jupyter notebook.
+
+> 📓 **[View the full analysis notebook →](https://colab.research.google.com/drive/1v6DlDyF9vhYkcVDoOylz1xoTYGOcn35q?usp=sharing)**
 
 ---
 
@@ -46,14 +51,15 @@ spatial-transcriptomics/
 
 | # | Analysis | Platform | Tissue | Resolution |
 |---|----------|----------|--------|------------|
-| 01 | [Basic Scanpy](#01-basic-spatial-analysis) | 10x Visium | Human Lymph Node | ~5–20 cells / spot |
-| 02 | [Visium Fluorescence](#02-visium-fluorescence-analysis) | 10x Visium | Mouse Brain | ~5–20 cells / spot |
-| 03 | [H&E Spatial Statistics](#03-he-spatial-statistics) | 10x Visium | Mouse Brain | ~5–20 cells / spot |
-| 04 | [Xenium Single-Cell](#04-xenium-single-cell-analysis) | 10x Xenium | Human Lung Cancer | Single cell |
+| 01 | [Basic Scanpy](#01-basic-spatial-analysis-visium-human-lymph-node) | 10x Visium | Human Lymph Node | ~5–20 cells / spot |
+| 02 | [Visium H&E Statistics](#02-visium-he-spatial-statistics) | 10x Visium | Mouse Brain | ~5–20 cells / spot |
+| 03 | [MERFISH 3D Analysis](#03-merfish-3d-analysis) | MERFISH | Mouse Brain | Single molecule |
+| 04 | [Visium Fluorescence](#04-visium-fluorescence-analysis) | 10x Visium | Mouse Brain | ~5–20 cells / spot |
+| 05 | [Xenium Single-Cell](#05-xenium-single-cell-analysis) | 10x Xenium | Human Lung Cancer | Single cell |
 
 ---
 
-## 01 Basic Spatial Analysis
+## 01 Basic Spatial Analysis — Visium Human Lymph Node
 
 The canonical entry-point workflow. Loads a public 10x Visium human lymph node dataset and walks through every step from raw counts to spatially resolved cluster maps.
 
@@ -61,7 +67,7 @@ The canonical entry-point workflow. Loads a public 10x Visium human lymph node d
 
 | Step | What happens |
 |------|-------------|
-| Load | `sc.datasets.visium_sge("V1_Human_Lymph_Node")` — fetches data + H&E image |
+| Load | `sc.datasets.visium_sge("V1_Human_Lymph_Node")` — fetches counts + H&E image |
 | QC | Flag MT genes; filter spots on `total_counts` (5k–35k) and `pct_counts_mt < 20`; remove genes in < 10 spots |
 | Normalize | `normalize_total` → `log1p` → 2,000 HVGs (Seurat flavor) |
 | Embed | PCA → KNN graph → UMAP |
@@ -74,7 +80,7 @@ The canonical entry-point workflow. Loads a public 10x Visium human lymph node d
 <table>
 <tr>
 <td align="center"><b>QC Distributions</b></td>
-<td align="center"><b>Spatial Clusters on H&amp;E</b></td>
+<td align="center"><b>Spatial Clusters on H&E</b></td>
 </tr>
 <tr>
 <td><img src="assets/images/scanpy_qc.png" alt="QC histograms"/></td>
@@ -86,7 +92,59 @@ The canonical entry-point workflow. Loads a public 10x Visium human lymph node d
 
 ---
 
-## 02 Visium Fluorescence Analysis
+## 02 Visium H&E Spatial Statistics
+
+The most analytically rich Visium workflow. Moves beyond clustering to apply formal spatial statistics, testing how cell populations are organized relative to one another in tissue.
+
+**Pipeline**
+
+| Step | What happens |
+|------|-------------|
+| Load | `sq.datasets.visium_hne_adata()` — mouse brain with annotated clusters |
+| Image features | Summary features at scales 1.0 and 2.0; combine and cluster |
+| Spatial graph | `sq.gr.spatial_neighbors` — KNN graph in physical space |
+| Neighborhood enrichment | Z-score test for cluster co-localization beyond chance |
+| Co-occurrence | Cluster proximity scores across distance radii (Hippocampus focus) |
+| Ligand–receptor | `sq.gr.ligrec` permutation test (100 perms); Hippocampus → Pyramidal layer |
+| Moran's I | Spatial autocorrelation scored on top 1,000 HVGs (100 permutations) |
+
+**Results**
+
+<table>
+<tr>
+<td align="center"><b>Top Moran's I Genes</b></td>
+<td align="center"><b>Spatial Clusters</b></td>
+</tr>
+<tr>
+<td><img src="assets/images/hne_moran_genes.png" alt="Moran genes"/></td>
+<td><img src="assets/images/hne_clusters.png" alt="H&E clusters"/></td>
+</tr>
+</table>
+
+**Key finding:** `Olfm1`, `Plp1`, and `Itpka` rank among the highest Moran's I genes, meaning their expression is tightly coupled to anatomical boundaries rather than being stochastically distributed. Neighborhood enrichment confirms strong spatial association between Hippocampus and Pyramidal layer clusters, supported by significant ligand–receptor interactions at their interface.
+
+---
+
+## 03 MERFISH 3D Analysis
+
+Demonstrates spatial analysis on MERFISH data — a single-molecule imaging platform that achieves subcellular resolution across both 2D and 3D tissue volumes.
+
+**Pipeline**
+
+| Step | What happens |
+|------|-------------|
+| Load | `sq.datasets.merfish()` — mouse brain MERFISH AnnData |
+| Visualize | 3D scatter of cell positions; per-section 2D spatial scatter colored by cell type |
+| Spatial graph | `sq.gr.spatial_neighbors` in 3D physical coordinates |
+| Neighborhood enrichment | Z-score enrichment matrix across annotated cell types |
+| Differential expression | Identify marker genes per spatial cluster |
+| Spatially variable genes | Moran's I to rank genes by spatial coherence |
+
+**Key finding:** MERFISH resolves fine-grained spatial organization at subcellular resolution, revealing cell-type boundaries and neighborhood structure that is undetectable at Visium spot resolution. 3D neighborhood enrichment captures layer-specific co-localization patterns across the tissue volume.
+
+---
+
+## 04 Visium Fluorescence Analysis
 
 Shows how morphological image features from fluorescence channels can drive clustering independently of — and complementary to — gene expression.
 
@@ -118,40 +176,7 @@ Shows how morphological image features from fluorescence channels can drive clus
 
 ---
 
-## 03 H&E Spatial Statistics
-
-The most analytically rich workflow. Moves beyond clustering to apply formal spatial statistics, testing how cell populations are organized relative to one another in tissue.
-
-**Pipeline**
-
-| Step | What happens |
-|------|-------------|
-| Load | `sq.datasets.visium_hne_adata()` — mouse brain with annotated clusters |
-| Image features | Summary features at scales 1.0 and 2.0; combine and cluster |
-| Spatial graph | `sq.gr.spatial_neighbors` — KNN graph in physical space |
-| Neighborhood enrichment | Z-score test for cluster co-localization beyond chance |
-| Co-occurrence | Cluster proximity scores across distance radii (Hippocampus focus) |
-| Ligand–receptor | `sq.gr.ligrec` permutation test (100 perms); Hippocampus → Pyramidal layer |
-| Moran's I | Spatial autocorrelation scored on top 1,000 HVGs (100 permutations) |
-
-**Results**
-
-<table>
-<tr>
-<td align="center"><b>Top Moran's I Genes</b></td>
-<td align="center"><b>Spatial Clusters</b></td>
-</tr>
-<tr>
-<td><img src="assets/images/hne_moran_genes.png" alt="Moran genes"/></td>
-<td><img src="assets/images/hne_clusters.png" alt="H&E clusters"/></td>
-</tr>
-</table>
-
-**Key finding:** `Olfm1`, `Plp1`, and `Itpka` rank among the highest Moran's I genes, meaning their expression is tightly coupled to anatomical boundaries rather than being stochastically distributed. Neighborhood enrichment confirms strong spatial association between Hippocampus and Pyramidal layer clusters, supported by significant ligand–receptor interactions at their interface.
-
----
-
-## 04 Xenium Single-Cell Analysis
+## 05 Xenium Single-Cell Analysis
 
 Analyzes 10x Xenium in-situ sequencing data at true single-cell resolution. Unlike Visium, Xenium assigns every transcript to a segmented cell, eliminating the need for spot deconvolution and enabling cellular-resolution mapping of the tumor microenvironment.
 
@@ -192,19 +217,20 @@ Analyzes 10x Xenium in-situ sequencing data at true single-cell resolution. Unli
 | Method | Used in | Purpose |
 |--------|---------|---------|
 | `normalize_total` + `log1p` | All | Remove sequencing depth bias |
-| Highly Variable Genes (Seurat) | 01, 04 | Feature selection |
+| Highly Variable Genes (Seurat) | 01, 05 | Feature selection |
 | PCA | All | Linear dimensionality reduction |
-| UMAP | 01, 04 | 2D non-linear embedding |
+| UMAP | 01, 05 | 2D non-linear embedding |
 | Leiden clustering | All | Graph-based community detection |
-| Spatial neighbor graph | 02, 03, 04 | Encodes physical tissue adjacency |
-| Watershed segmentation | 02 | Cell delineation from DAPI channel |
-| Image feature extraction | 02, 03 | Morphological summary / texture / histogram features per spot |
-| Neighborhood enrichment | 03, 04 | Tests spatial co-localization of cluster pairs |
-| Co-occurrence scoring | 03, 04 | Cluster proximity across distance scales |
-| Ligand–receptor (`ligrec`) | 03 | Permutation test for intercellular signaling |
-| Moran's I | 03, 04 | Spatial autocorrelation of gene expression |
-| Centrality scores | 04 | Graph-theoretic importance per cluster |
-| SpatialData | 04 | Unified multi-modal spatial container |
+| Spatial neighbor graph | 02, 03, 04, 05 | Encodes physical tissue adjacency |
+| Watershed segmentation | 04 | Cell delineation from DAPI channel |
+| Image feature extraction | 02, 04 | Morphological summary / texture / histogram features per spot |
+| Neighborhood enrichment | 02, 03, 05 | Tests spatial co-localization of cluster pairs |
+| Co-occurrence scoring | 02, 05 | Cluster proximity across distance scales |
+| Ligand–receptor (`ligrec`) | 02 | Permutation test for intercellular signaling |
+| Moran's I | 02, 03, 05 | Spatial autocorrelation of gene expression |
+| Centrality scores | 05 | Graph-theoretic importance per cluster |
+| SpatialData | 05 | Unified multi-modal spatial container |
+| 3D spatial analysis | 03 | Cell-type organization across tissue volume |
 
 ---
 
